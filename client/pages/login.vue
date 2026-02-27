@@ -318,62 +318,65 @@ export default {
       localStorage.setItem('token', this.$route.query.accessToken)
     }
 
-    // Start Passkey autofill and handle Capacitor Deep Links
+    // Handle Capacitor deep-link passkey login (opened via system browser from mobile app)
     if (this.$route.query.passkey_login) {
-      // If the user's browser is already logged in, skip the prompt and instantly feed the app the token!
-      const currentToken = localStorage.getItem('token');
+      // If the user's browser is already logged in, skip the prompt and instantly feed the app the token
+      const currentToken = localStorage.getItem('token')
       if (currentToken) {
-        window.location.href = `audiobookshelf://passkey?token=${currentToken}`;
-        return;
+        window.location.href = `audiobookshelf://passkey?token=${currentToken}`
+        return
       }
 
       try {
-        const options = await this.$axios.$get('/api/webauthn/login/generate');
-        const authResp = await startAuthentication(options, false); // false = modal UI
+        const options = await this.$axios.$get('/api/webauthn/login/generate')
+        const authResp = await startAuthentication(options, false) // false = modal UI
 
-        this.processing = true;
-        const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp);
+        this.processing = true
+        const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp)
 
         if (verificationRes && verificationRes.user) {
-          const token = verificationRes.user.token || verificationRes.user.accessToken;
-          window.location.href = `audiobookshelf://passkey?token=${token}`;
-          return;
+          const token = verificationRes.user.token || verificationRes.user.accessToken
+          window.location.href = `audiobookshelf://passkey?token=${token}`
         }
       } catch (error) {
         if (error.name !== 'NotAllowedError') {
-           console.error('Passkey auto-fill failed', error);
+          console.error('Passkey login failed', error)
         }
-        window.location.href = 'audiobookshelf://passkey';
+        // Redirect back to app even on failure so the browser closes
+        window.location.href = 'audiobookshelf://passkey'
       } finally {
-        this.processing = false;
-        return; // Ensure we don't continue to the rest of the mounted logic
+        this.processing = false
       }
+      return // Don't continue to the rest of mounted logic
     }
 
+    // Normal auth check
     if (localStorage.getItem('token')) {
       if (await this.checkAuth()) return // if valid user no need to check status
     }
 
     this.checkStatus()
-    } else if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
-      const available = await PublicKeyCredential.isConditionalMediationAvailable();
+
+    // Start Passkey Conditional UI (Autofill) for normal web browser usage
+    if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
+      const available = await PublicKeyCredential.isConditionalMediationAvailable()
       if (available) {
         try {
-          const options = await this.$axios.$get('/api/webauthn/login/generate');
-          const authResp = await startAuthentication(options, true); // true = conditional UI
+          const options = await this.$axios.$get('/api/webauthn/login/generate')
+          const authResp = await startAuthentication(options, true) // true = conditional UI
 
-          this.processing = true;
-          const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp);
+          this.processing = true
+          const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp)
 
           if (verificationRes && verificationRes.user) {
-             this.setUser(verificationRes);
+            this.setUser(verificationRes)
           }
         } catch (error) {
           if (error.name !== 'NotAllowedError') {
-             console.error('Passkey auto-fill failed', error);
+            console.error('Passkey auto-fill failed', error)
           }
         } finally {
-          this.processing = false;
+          this.processing = false
         }
       }
     }

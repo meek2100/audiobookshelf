@@ -317,14 +317,45 @@ export default {
     if (this.$route.query?.accessToken) {
       localStorage.setItem('token', this.$route.query.accessToken)
     }
+
+    // Start Passkey autofill and handle Capacitor Deep Links
+    if (this.$route.query.passkey_login) {
+      // If the user's browser is already logged in, skip the prompt and instantly feed the app the token!
+      const currentToken = localStorage.getItem('token');
+      if (currentToken) {
+        window.location.href = `audiobookshelf://passkey?token=${currentToken}`;
+        return;
+      }
+
+      try {
+        const options = await this.$axios.$get('/api/webauthn/login/generate');
+        const authResp = await startAuthentication(options, false); // false = modal UI
+
+        this.processing = true;
+        const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp);
+
+        if (verificationRes && verificationRes.user) {
+          const token = verificationRes.user.token || verificationRes.user.accessToken;
+          window.location.href = `audiobookshelf://passkey?token=${token}`;
+          return;
+        }
+      } catch (error) {
+        if (error.name !== 'NotAllowedError') {
+           console.error('Passkey auto-fill failed', error);
+        }
+        window.location.href = 'audiobookshelf://passkey';
+      } finally {
+        this.processing = false;
+        return; // Ensure we don't continue to the rest of the mounted logic
+      }
+    }
+
     if (localStorage.getItem('token')) {
       if (await this.checkAuth()) return // if valid user no need to check status
     }
 
     this.checkStatus()
-
-    // Start Passkey Conditional UI (Autofill)
-    if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
+    } else if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
       const available = await PublicKeyCredential.isConditionalMediationAvailable();
       if (available) {
         try {

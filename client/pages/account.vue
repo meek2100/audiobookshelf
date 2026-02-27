@@ -252,18 +252,29 @@ export default {
 
         if (verificationRes.success) {
           this.$toast.success('Passkey registered successfully')
+          if (this.$route.query.passkey_register) {
+            window.location.href = 'audiobookshelf://passkey'
+          }
         } else {
           this.$toast.error('Failed to register passkey')
         }
       } catch (error) {
         console.error('Passkey registration error', error)
         this.$toast.error('Passkey registration was cancelled or failed')
+        if (this.$route.query.passkey_register) {
+            // Close app browser even upon failure to prevent user from being stuck
+            window.location.href = 'audiobookshelf://passkey'
+        }
       }
     }
   },
   mounted() {
     this.selectedLanguage = this.$languageCodes.current
     this.ereaderDevices = this.$store.state.libraries.ereaderDevices || []
+
+    if (this.$route.query.passkey_register) {
+      this.registerPasskey()
+    }
   }
 }
 </script>

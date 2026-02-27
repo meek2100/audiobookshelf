@@ -51,7 +51,7 @@
 
           <form v-show="login_local" @submit.prevent="submitForm">
             <label class="text-xs text-gray-300 uppercase">{{ $strings.LabelUsername }}</label>
-            <ui-text-input v-model.trim="username" :disabled="processing" class="mb-3 w-full" inputName="username" />
+            <ui-text-input v-model.trim="username" autocomplete="username webauthn" :disabled="processing" class="mb-3 w-full" inputName="username" />
 
             <label class="text-xs text-gray-300 uppercase">{{ $strings.LabelPassword }}</label>
             <ui-text-input v-model.trim="password" type="password" :disabled="processing" class="w-full mb-3" inputName="password" />
@@ -74,6 +74,8 @@
 </template>
 
 <script>
+import { startAuthentication } from '@simplewebauthn/browser'
+
 export default {
   layout: 'blank',
   data() {
@@ -320,6 +322,30 @@ export default {
     }
 
     this.checkStatus()
+
+    // Start Passkey Conditional UI (Autofill)
+    if (window.PublicKeyCredential && PublicKeyCredential.isConditionalMediationAvailable) {
+      const available = await PublicKeyCredential.isConditionalMediationAvailable();
+      if (available) {
+        try {
+          const options = await this.$axios.$get('/api/webauthn/login/generate');
+          const authResp = await startAuthentication(options, true); // true = conditional UI
+
+          this.processing = true;
+          const verificationRes = await this.$axios.$post('/api/webauthn/login/verify', authResp);
+
+          if (verificationRes && verificationRes.user) {
+             this.setUser(verificationRes);
+          }
+        } catch (error) {
+          if (error.name !== 'NotAllowedError') {
+             console.error('Passkey auto-fill failed', error);
+          }
+        } finally {
+          this.processing = false;
+        }
+      }
+    }
   }
 }
 </script>

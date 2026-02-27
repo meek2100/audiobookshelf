@@ -35,6 +35,7 @@ const MiscController = require('../controllers/MiscController')
 const ShareController = require('../controllers/ShareController')
 const StatsController = require('../controllers/StatsController')
 const ApiKeyController = require('../controllers/ApiKeyController')
+const WebAuthnController = require('../controllers/WebAuthnController')
 
 class ApiRouter {
   constructor(Server) {
@@ -354,6 +355,14 @@ class ApiRouter {
     this.router.patch('/auth-settings', MiscController.updateAuthSettings.bind(this))
     this.router.post('/watcher/update', MiscController.updateWatchedPath.bind(this))
     this.router.get('/logger-data', MiscController.getLoggerData.bind(this))
+
+    //
+    // WebAuthn Routes
+    //
+    this.router.get('/webauthn/login/generate', WebAuthnController.generateLoginOptions.bind(WebAuthnController))
+    this.router.post('/webauthn/login/verify', WebAuthnController.verifyLoginResponse.bind(WebAuthnController), this.auth.sendLoginSuccess.bind(this.auth))
+    this.router.get('/webauthn/register/generate', WebAuthnController.generateRegisterOptions.bind(WebAuthnController))
+    this.router.post('/webauthn/register/verify', WebAuthnController.verifyRegisterResponse.bind(WebAuthnController))
   }
 
   //

@@ -18,7 +18,7 @@ const { escapeRegExp } = require('./utils')
 class Auth {
   constructor() {
     const escapedRouterBasePath = escapeRegExp(global.RouterBasePath)
-    this.ignorePatterns = [new RegExp(`^(${escapedRouterBasePath}/api)?/items/[^/]+/cover$`), new RegExp(`^(${escapedRouterBasePath}/api)?/authors/[^/]+/image$`)]
+    this.ignorePatterns = [new RegExp(`^(${escapedRouterBasePath}/api)?/items/[^/]+/cover$`), new RegExp(`^(${escapedRouterBasePath}/api)?/authors/[^/]+/image$`), new RegExp(`^(${escapedRouterBasePath}/api)?/webauthn/login/.*`)]
 
     /** @type {import('express-rate-limit').RateLimitRequestHandler} */
     this.authRateLimiter = RateLimiterFactory.getAuthRateLimiter()
@@ -34,7 +34,7 @@ class Auth {
    * @returns {boolean}
    */
   authNotNeeded(req) {
-    return req.method === 'GET' && this.ignorePatterns.some((pattern) => pattern.test(req.path))
+    return (req.method === 'GET' && this.ignorePatterns.some((pattern) => pattern.test(req.path))) || req.path.match(/\/webauthn\/login\//)
   }
 
   /**
@@ -309,6 +309,19 @@ class Auth {
     return userResponse
   }
 
+  /**
+   * Handles sending a login success response back to the client
+   * @param {Request} req
+   * @param {Response} res
+   */
+  async sendLoginSuccess(req, res) {
+    // Check if mobile app wants refresh token in response
+    const returnTokens = req.headers['x-return-tokens'] === 'true'
+
+    const userResponse = await this.handleLoginSuccess(req, res, returnTokens)
+    res.json(userResponse)
+  }
+
   // #region Auth routes
   /**
    * Creates all (express) routes required for authentication.
@@ -317,14 +330,7 @@ class Auth {
    */
   async initAuthRoutes(router) {
     // Local strategy login route (takes username and password)
-    router.post('/login', this.authRateLimiter, passport.authenticate('local'), async (req, res) => {
-      // Check if mobile app wants refresh token in response
-      const returnTokens = req.headers['x-return-tokens'] === 'true'
-
-      const userResponse = await this.handleLoginSuccess(req, res, returnTokens)
-      res.json(userResponse)
-    })
-
+    router.post('/login', this.authRateLimiter, passport.authenticate('local'), this.sendLoginSuccess.bind(this))
     // Refresh token route
     router.post('/auth/refresh', this.authRateLimiter, async (req, res) => {
       let refreshToken = req.cookies.refresh_token

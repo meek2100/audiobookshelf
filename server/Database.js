@@ -42,6 +42,11 @@ class Database {
     return this.models.user
   }
 
+  /** @type {typeof import('./models/UserPasskey')} */
+  get userPasskeyModel() {
+    return this.models.userPasskey
+  }
+
   /** @type {typeof import('./models/Session')} */
   get sessionModel() {
     return this.models.session
@@ -321,6 +326,7 @@ class Database {
 
   buildModels(force = false) {
     require('./models/User').init(this.sequelize)
+    require('./models/UserPasskey').init(this.sequelize)
     require('./models/Session').init(this.sequelize)
     require('./models/ApiKey').init(this.sequelize)
     require('./models/Library').init(this.sequelize)

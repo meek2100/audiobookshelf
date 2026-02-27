@@ -30,6 +30,8 @@
             <ui-btn v-show="(password && newPassword && confirmPassword) || isRoot" type="submit" :loading="changingPassword" color="bg-success">{{ $strings.ButtonSubmit }}</ui-btn>
           </div>
         </form>
+
+        <ui-btn v-if="!isGuest" color="bg-primary" class="mt-4" @click="registerPasskey">Register Passkey</ui-btn>
       </div>
 
       <div v-if="showEreaderTable">
@@ -79,6 +81,8 @@
 </template>
 
 <script>
+import { startRegistration } from '@simplewebauthn/browser'
+
 export default {
   data() {
     return {
@@ -238,6 +242,23 @@ export default {
     },
     ereaderDevicesUpdated(ereaderDevices) {
       this.ereaderDevices = ereaderDevices
+    },
+    async registerPasskey() {
+      try {
+        const options = await this.$axios.$get('/api/webauthn/register/generate')
+        const regResp = await startRegistration(options)
+
+        const verificationRes = await this.$axios.$post('/api/webauthn/register/verify', regResp)
+
+        if (verificationRes.success) {
+          this.$toast.success('Passkey registered successfully')
+        } else {
+          this.$toast.error('Failed to register passkey')
+        }
+      } catch (error) {
+        console.error('Passkey registration error', error)
+        this.$toast.error('Passkey registration was cancelled or failed')
+      }
     }
   },
   mounted() {
